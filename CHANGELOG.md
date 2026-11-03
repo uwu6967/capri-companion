@@ -2,6 +2,16 @@
 
 This log documents the custom Cyberpunk mod work discussed before this repository was created, followed by current updates. Earlier entries are reconstructed from the conversation and available source snapshots; they are not a fabricated sequence of Git commits. `0.1.0-dev` names the first repository snapshot, not a stable release.
 
+## 2026-11-03 — Complete player documentation and Nexus listing draft
+
+- Expanded the unpublished Nexus description to cover features, installation, controls, all exposed settings, fixed balance values, compatibility limits, uninstalling and credits.
+- Added a player tutorial, detailed settings reference, FAQ and linked attribution page.
+- Distinguished the original owner's F11/Tab/E bindings from keys players assign themselves.
+- Bundled the new documentation inside the private game-layout test archive and added checks that the guide/settings/FAQ/credits/draft are present.
+- Rechecked the original mod's permissions on Nexus. Permission to modify/reuse its material is still required; no author approval has been supplied. No files or listing were submitted to Nexus, and no Nexus download URL exists for this project.
+
+**Validation:** archive integrity, repeated-build consistency and required-document inclusion passed. No gameplay code changed in this documentation pass. Existing mission-safety and upstream-permission limitations remain.
+
 ## 2026-11-03 — 0.1.1-private optimization and release preparation
 
 - User chose private preparation after checking the original author's Nexus modification/asset permissions. No Nexus page, draft upload, or public release was created.

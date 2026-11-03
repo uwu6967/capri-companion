@@ -49,8 +49,13 @@ def build(root=ROOT):
         "Close Cyberpunk before installing. Back up matching files before extracting at the game root.\n"
         "Prefer the project's backing-up installer for personal testing.\n"
         "Restore a checkpoint from before any mission character was harmed.\n"
+        "Tutorial: CapriCompanionQoL-docs/docs/PLAYER_GUIDE.md\n"
+        "Settings: CapriCompanionQoL-docs/docs/SETTINGS.md\n"
+        "FAQ and credits are in the same documentation folder.\n"
     ).encode()
-    for name in ("CHANGELOG.md", "THIRD_PARTY_NOTICES.md", "docs/KNOWN_ISSUES.md"):
+    for name in ("CHANGELOG.md", "THIRD_PARTY_NOTICES.md", "docs/KNOWN_ISSUES.md",
+                 "docs/PLAYER_GUIDE.md", "docs/SETTINGS.md", "docs/FAQ.md",
+                 "docs/CREDITS.md", "docs/NEXUS_DRAFT.md"):
         payload["CapriCompanionQoL-docs/" + name] = (root / name).read_bytes()
     output = root / "dist" / "private"
     output.mkdir(parents=True, exist_ok=True)

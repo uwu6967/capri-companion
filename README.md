@@ -6,6 +6,8 @@ Current candidate: **0.1.1-private**. The user chose private preparation after t
 
 History: [CHANGELOG.md](CHANGELOG.md). Current limitations: [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md). Validation: [docs/VALIDATION.md](docs/VALIDATION.md).
 
+Player documentation: [tutorial](docs/PLAYER_GUIDE.md), [every exposed setting](docs/SETTINGS.md), [FAQ](docs/FAQ.md), and [credits](docs/CREDITS.md). The [Nexus page draft](docs/NEXUS_DRAFT.md) is a preview, not a published Nexus listing. The private ZIP includes these documents.
+
 Installed extension for this Cyberpunk 2077 setup, built November 3, 2026.
 
 Fully quit and restart Cyberpunk after installation. Load a save, then open the CET overlay with **F11**. The **Capri Companion** window appears alongside it. This key was verified from this installation's bindings file.

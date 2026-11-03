@@ -28,6 +28,8 @@ class PackageTests(unittest.TestCase):
             manifest = json.loads(archive.read("CapriCompanionQoL-MANIFEST.json"))
             self.assertEqual(manifest["visibility"], "private")
             self.assertEqual(len(manifest["files"]), 10)
+            for name in ("PLAYER_GUIDE.md", "SETTINGS.md", "FAQ.md", "CREDITS.md", "NEXUS_DRAFT.md"):
+                self.assertIn("CapriCompanionQoL-docs/docs/" + name, archive.namelist())
             self.assertFalse(any(name.endswith("settings.json") for name in archive.namelist()))
             self.assertTrue(all(not Path(name).is_absolute() for name in archive.namelist()))
 
