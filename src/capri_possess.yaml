@@ -1,0 +1,57 @@
+QuickHack.CapriPossess:
+  $base: QuickHack.BlackWallHack
+  actionName: CapriPossess
+  activationTime: [Capricorn.PossessUploadTime]
+  priority: 50.0
+  objectActionUI: Interactions.CapriPossess
+  costs: []
+  instigatorPrereqs: []
+  targetActivePrereqs: []
+  startEffects: []
+  completionEffects:
+    - Capricorn.PossessEffect
+
+Capricorn.PossessUploadTime:
+  $type: ConstantStatModifier
+  statType: BaseStats.QuickHackUpload
+  modifierType: Additive
+  value: 0.25
+
+Interactions.CapriPossess:
+  $base: Interactions.BlackwallHack
+  caption: "LocKey#capri_possess_name"
+  description: "LocKey#capri_possess_desc"
+  name: CapriPossess
+  captionIcon: ChoiceCaptionParts.CapriPossess
+
+Capricorn.PossessEffect:
+  $type: ObjectActionEffect
+  recipient: ObjectActionReference.Target
+  effectorToTrigger:
+    $type: Effector
+    prereqRecord: Prereqs.AlwaysTruePrereq
+    effectorClassName: CapriPossessEffector
+
+Items.Capricorn:
+  objectActions:
+    - !append-once QuickHack.CapriPossess
+
+UIIcon.CapriPossessedHelper:
+  $type: UIIcon
+  atlasPartName: CapriScanner
+  atlasResourcePath: capri_helper\icons\capri_green.inkatlas
+
+ChoiceCaptionParts.CapriPossess:
+  $base: ChoiceCaptionParts.ProjectCapricorn
+  texturePartID: UIIcon.CapriPossessedHelper
+
+# Automatic Sandevistan attacks use the same native upload FX as the Tab hack.
+QuickHack.CapriSandevistanStrike:
+  $base: QuickHack.ProjectCapricornSpread
+  activationTime: [Capricorn.ProjectUploadTime]
+  completionEffects:
+    - QuickHack.QuickHack_inline2
+    - QuickHack.QuickHack_inline6
+    - QuickHack.QuickHack_inline8
+    - QuickHack.QuickHack_inline9
+    - Capricorn.ProjectKillEffect

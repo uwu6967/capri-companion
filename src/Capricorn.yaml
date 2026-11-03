@@ -1,0 +1,389 @@
+# Capricorn 0.8.1 — Cyberpunk 2077 2.5 / Phantom Liberty
+# New records only; no stock records are edited.
+Items.Capricorn:
+  $base: Items.HauntedCyberdeck
+  displayName: Capricorn-Name
+  localizedDescription: "Iconic cyberdeck. RAM recovers during combat. Upgrade at a ripperdoc for more RAM and faster recovery. Hold F10 to call Capri."
+  iconPath: cw_cyberdeck_arasaka
+  quality: Quality.Legendary
+  blueprint: Capricorn.EightSlotBlueprint
+  variants: [Variants.Humanity30Cost]
+  nextUpgradeItem: Items.CapricornPlus
+  counterpart: ""
+  CraftingData: Capricorn.CraftingPackage
+  slotPartList: [Items.GenericRootSlotItem]
+  # Deck-native quickhack actions are collected before attached programs.
+  objectActions:
+    - !append-once QuickHack.ProjectCapricorn
+  OnEquip:
+    # All entries are mutations. The base retains scanning and Blackwall helpers
+    # and contains no tier-instance RAM package. Never mix plain entries here.
+    - !append Capricorn.ProjectCapricornAbility
+    - !append Capricorn.Resources
+    - !append Capricorn.SelfICE
+    - !append Capricorn.RAMDiscount
+    - !append Items.DecreasedHacksCostOnDevicesAbility
+    - !append Capricorn.DamageOverTime
+    - !append Items.QuickhacksSpreadOnStartAbility
+    - !append Capricorn.Damage
+    - !append Capricorn.RAMRecovery
+
+Capricorn.Resources:
+  $type: GameplayLogicPackage
+  stats:
+    - $type: ConstantStatModifier
+      statType: BaseStats.Memory
+      modifierType: Additive
+      value: 20.0
+    - $type: ConstantStatModifier
+      statType: BaseStats.BufferSize
+      modifierType: Additive
+      value: 4.0
+
+Capricorn.SelfICE:
+  $type: GameplayLogicPackage
+  stats:
+    - $type: ConstantStatModifier
+      statType: BaseStats.QuickhackShield
+      modifierType: Additive
+      value: 1.0
+    - $type: ConstantStatModifier
+      statType: BaseStats.AntiVirusCooldownReduction
+      modifierType: Additive
+      value: 45.0
+
+Capricorn.RAMDiscount:
+  $type: GameplayLogicPackage
+  stats:
+    - $type: ConstantStatModifier
+      statType: BaseStats.MemoryCostReduction
+      modifierType: Additive
+      value: 3.0
+
+Capricorn.Damage:
+  $base: Items.IncreasedHackDamageAbility
+  stats:
+    - $type: ConstantStatModifier
+      statType: BaseStats.QuickhackDamageBonusMultiplier
+      modifierType: Additive
+      value: 0.2
+
+Capricorn.RAMRecovery:
+  $type: GameplayLogicPackage
+  stats:
+    - $type: ConstantStatModifier
+      statType: BaseStats.MemoryRegenEnabled
+      modifierType: Additive
+      value: 1.0
+    - $type: ConstantStatModifier
+      statType: BaseStats.MemoryRegenRate
+      modifierType: Additive
+      value: 1.0
+
+Capricorn.DamageOverTime:
+  $base: Items.IncreaseDotHacksDamageAbility
+  stats:
+    - $type: ConstantStatModifier
+      statType: BaseStats.QuickhackDamageOverTimeBonusMultiplier
+      modifierType: Additive
+      value: 0.3
+
+# Exactly eight regular program positions. The signature is deck-native and
+# normalized by the existing scanner-list hook, never an equipped attachment.
+# Retain the legacy slot record only for safe migration of existing saves.
+AttachmentSlots.CapricornBlackwall:
+  $base: AttachmentSlots.CyberdeckProgram1
+  entitySlotName: CapricornBlackwall
+
+Capricorn.EightSlotBlueprint:
+  $type: ItemBlueprint
+  rootElement:
+    $type: ItemBlueprintElement
+    slot: AttachmentSlots.GenericItemRoot
+    childElements:
+      - $type: ItemBlueprintElement
+        slot: AttachmentSlots.CyberdeckProgram1
+      - $type: ItemBlueprintElement
+        slot: AttachmentSlots.CyberdeckProgram2
+      - $type: ItemBlueprintElement
+        slot: AttachmentSlots.CyberdeckProgram3
+      - $type: ItemBlueprintElement
+        slot: AttachmentSlots.CyberdeckProgram4
+      - $type: ItemBlueprintElement
+        slot: AttachmentSlots.CyberdeckProgram5
+      - $type: ItemBlueprintElement
+        slot: AttachmentSlots.CyberdeckProgram6
+      - $type: ItemBlueprintElement
+        slot: AttachmentSlots.CyberdeckProgram7
+      - $type: ItemBlueprintElement
+        slot: AttachmentSlots.CyberdeckProgram8
+
+# Runtime toggle for the subtitles-first dialogue layer.
+Capricorn.DialogueEnabled: true
+
+# Project Capricorn: same BlackWall action family for native target matching.
+# Only new records: original Canto and Enter Blackwall records remain intact.
+Items.ProjectCapricornProgram:
+  $base: Items.BlackWallProgramLvl4
+  displayName: "LocKey#770300000000004"
+  localizedDescription: "LocKey#770300000000005"
+  quality: Quality.Legendary
+  shardType: BlackWall
+  placementSlots: [AttachmentSlots.CapricornBlackwall]
+  objectActions: [ItemAction.ProgramDisassemble, QuickHack.ProjectCapricorn]
+  OnAttach: [Capricorn.ProjectScannerDamageUI, Capricorn.ProjectScannerSpreadUI, Capricorn.ProjectScannerInstanceUI]
+  OnEquip: []
+  CraftingData: ""
+  statModifiers:
+    - !append-once Quality.IconicItem
+
+UIIcon.ProjectCapricornScanner:
+  $type: UIIcon
+  atlasPartName: CapriScanner
+  atlasResourcePath: capricorn\icons\capri.inkatlas
+
+ChoiceCaptionParts.ProjectCapricorn:
+  $type: ChoiceCaptionIconPart
+  partType: ChoiceCaptionPartType.Icon
+  mappinVariant: Mappins.InvalidVariant
+  enumName: ProjectCapricorn
+  texturePartID: UIIcon.ProjectCapricornScanner
+
+Interactions.ProjectCapricorn:
+  $base: Interactions.BlackwallHack
+  caption: "LocKey#770300000000004"
+  description: "LocKey#770300000000005"
+  name: ProjectCapricorn
+  captionIcon: ChoiceCaptionParts.ProjectCapricorn
+
+Capricorn.ProjectCapricornAbility:
+  $type: GameplayLogicPackage
+  UIData:
+    $type: GameplayLogicPackageUIData
+    iconPath: ability_utility
+    localizedName: "LocKey#770300000000004"
+    localizedDescription: "RAM recovers during combat. Upgrade at a ripperdoc for more RAM and faster recovery. Hold F10 to call Capri."
+
+# Separate ability records use the game's standard scanner bullet rows.
+Capricorn.ProjectScannerDamageUI:
+  $type: GameplayLogicPackage
+  UIData:
+    $type: GameplayLogicPackageUIData
+    iconPath: ability_utility
+    localizedName: "LocKey#770300000000004"
+    localizedDescription: "LocKey#770300000000006"
+
+Capricorn.ProjectScannerSpreadUI:
+  $type: GameplayLogicPackage
+  UIData:
+    $type: GameplayLogicPackageUIData
+    iconPath: ability_utility
+    localizedName: "LocKey#770300000000004"
+    localizedDescription: "LocKey#770300000000007"
+
+Capricorn.ProjectScannerInstanceUI:
+  $type: GameplayLogicPackage
+  UIData:
+    $type: GameplayLogicPackageUIData
+    iconPath: ability_utility
+    localizedName: "LocKey#770300000000004"
+    localizedDescription: "LocKey#770300000000008"
+
+QuickHack.ProjectCapricorn:
+  $base: QuickHack.BlackWallHack
+  actionName: BlackWall
+  priority: 100.0
+  objectActionUI: Interactions.ProjectCapricorn
+  cooldown: ""
+  activationTime: [Capricorn.ProjectUploadTime]
+  costs: [Capricorn.ProjectRAMCost]
+  instigatorPrereqs:
+    - QuickHack.QuickHack_inline1
+    - Capricorn.ProjectAvailable
+  startEffects:
+    - Capricorn.ProjectUploadFX
+    - Capricorn.ProjectSignatureEffect
+  completionEffects:
+    - QuickHack.QuickHack_inline2
+    - QuickHack.QuickHack_inline6
+    - QuickHack.QuickHack_inline8
+    - QuickHack.QuickHack_inline9
+    - Capricorn.ProjectKillEffect
+    - Capricorn.ProjectSpreadEffect
+
+# Free sequential copies complete before selecting/reapplying the next host.
+QuickHack.ProjectCapricornSpread:
+  $base: QuickHack.ProjectCapricorn
+  costs: []
+  instigatorPrereqs: []
+  targetActivePrereqs: []
+  startEffects: [Capricorn.ProjectUploadFX]
+  completionEffects:
+    - QuickHack.QuickHack_inline2
+    - QuickHack.QuickHack_inline6
+    - QuickHack.QuickHack_inline8
+    - QuickHack.QuickHack_inline9
+    - Capricorn.ProjectKillEffect
+
+Capricorn.ProjectUploadTime:
+  $type: ConstantStatModifier
+  statType: BaseStats.QuickHackUpload
+  modifierType: Additive
+  value: 3.0
+
+Capricorn.ProjectRAMCost:
+  $base: QuickHack.MemoryCostUltimate
+  costMods:
+    - !append Capricorn.ProjectRAMValue
+
+Capricorn.ProjectRAMValue:
+  $type: ConstantStatModifier
+  statType: BaseStats.Memory
+  modifierType: Additive
+  value: 15.0
+
+Capricorn.ProjectAvailable:
+  $base: Prereqs.AlwaysTruePrereq
+  prereqClassName: CapricornProjectAvailablePrereq
+
+Capricorn.ProjectUploadFX:
+  $type: ObjectActionEffect
+  recipient: ObjectActionReference.Target
+  statusEffect: BaseStatusEffect.HauntedQuickHackBlackwallUpload
+
+Capricorn.ProjectSignatureEffect:
+  $type: ObjectActionEffect
+  recipient: ObjectActionReference.Instigator
+  statusEffect: BaseStatusEffect.BlackwallHack_FactHelper
+
+Capricorn.ProjectSpreadEffect:
+  $type: ObjectActionEffect
+  recipient: ObjectActionReference.Target
+  effectorToTrigger:
+    $type: Effector
+    prereqRecord: Prereqs.AlwaysTruePrereq
+    effectorClassName: CapricornProjectSpreadEffector
+
+Capricorn.ProjectKillEffect:
+  $type: ObjectActionEffect
+  recipient: ObjectActionReference.Target
+  effectorToTrigger:
+    $type: Effector
+    prereqRecord: Prereqs.AlwaysTruePrereq
+    effectorClassName: CapricornProjectKillEffector
+
+# New-record clone dependencies must be declared first.
+Items.CapricornBlackwallProgram:
+  $base: Items.ProjectCapricornProgram
+  placementSlots: [AttachmentSlots.CapricornBlackwall]
+
+# Earned Canto-to-Capricorn conversion. Costs are fixed for this recipe only.
+Capricorn.CraftingPackage:
+  $type: CraftingPackage
+  craftingRecipe:
+    - $type: RecipeElement
+      ingredient: Items.HauntedCyberdeck_LegendaryPlusPlus
+      amount: 1
+    - $type: RecipeElement
+      ingredient: Items.LegendaryMaterial1
+      amount: 1000
+    - $type: RecipeElement
+      ingredient: Items.QuickHackLegendaryMaterial1
+      amount: 500
+
+Items.Recipe_Capricorn:
+  $base: Items.Recipe_HauntedCyberdeck
+  displayName: Capricorn-CantoConversion-Name
+  localizedDescription: Capricorn-CantoConversion-Description
+  quality: Quality.Legendary
+  iconPath: cw_cyberdeck_arasaka
+  craftingResult:
+    $type: CraftingResult
+    item: Items.Capricorn_CantoConversion
+    amount: 1
+  hideOnItemsAdded: []
+  OnLooted: []
+
+
+# CraftBook keys learned entries by target item: preview records keep the two
+# conversion blueprints separate. Neither preview is ever granted as the output.
+Items.Capricorn_CantoConversion:
+  $base: Items.Capricorn
+  displayName: Capricorn-CantoConversion-Name
+  localizedDescription: Capricorn-CantoConversion-Description
+
+Capricorn.ErebusCraftingPackage:
+  $type: CraftingPackage
+  craftingRecipe:
+    - $type: RecipeElement
+      ingredient: Items.Legendary_Borg4a_HauntedGun
+      amount: 1
+    - $type: RecipeElement
+      ingredient: Items.LegendaryMaterial1
+      amount: 1000
+    - $type: RecipeElement
+      ingredient: Items.QuickHackLegendaryMaterial1
+      amount: 500
+
+Items.Capricorn_ErebusConversion:
+  $base: Items.Capricorn
+  displayName: Capricorn-ErebusConversion-Name
+  localizedDescription: Capricorn-ErebusConversion-Description
+  CraftingData: Capricorn.ErebusCraftingPackage
+
+Items.Recipe_Capricorn_Erebus:
+  $base: Items.Recipe_HauntedCyberdeck
+  displayName: Capricorn-ErebusConversion-Name
+  localizedDescription: Capricorn-ErebusConversion-Description
+  quality: Quality.Legendary
+  iconPath: cw_cyberdeck_arasaka
+  craftingResult:
+    $type: CraftingResult
+    item: Items.Capricorn_ErebusConversion
+    amount: 1
+  hideOnItemsAdded: []
+  OnLooted: []
+
+# Ripperdoc progression. Keep the original deck ID and add two normal upgrades.
+# Each tier inherits all Capricorn abilities and eight quickhack slots.
+Capricorn.UpgradePlusResources:
+  $type: GameplayLogicPackage
+  stats:
+    - $type: ConstantStatModifier
+      statType: BaseStats.Memory
+      modifierType: Additive
+      value: 8.0
+    - $type: ConstantStatModifier
+      statType: BaseStats.MemoryRegenRate
+      modifierType: Additive
+      value: 1.0
+
+Items.CapricornPlus:
+  $base: Items.Capricorn
+  quality: Quality.LegendaryPlus
+  nextUpgradeItem: Items.CapricornPlusPlus
+  counterpart: ""
+  objectActions:
+    - !append-once QuickHack.CapriPossess
+  OnEquip:
+    - !append-once Capricorn.UpgradePlusResources
+
+Items.CapricornPlusPlus:
+  $base: Items.CapricornPlus
+  quality: Quality.LegendaryPlusPlus
+  nextUpgradeItem: ""
+  counterpart: ""
+  OnEquip:
+    - !append-once Capricorn.UpgradePlusPlusResources
+
+Capricorn.UpgradePlusPlusResources:
+  $type: GameplayLogicPackage
+  stats:
+    - $type: ConstantStatModifier
+      statType: BaseStats.Memory
+      modifierType: Additive
+      value: 8.0
+    - $type: ConstantStatModifier
+      statType: BaseStats.MemoryRegenRate
+      modifierType: Additive
+      value: 1.0
