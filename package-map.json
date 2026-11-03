@@ -1,0 +1,12 @@
+{
+  "src/init.lua": "bin/x64/plugins/cyber_engine_tweaks/mods/CapriCompanionQoL/init.lua",
+  "src/capri_summon.reds": "r6/scripts/capri_summon/capri_summon.reds",
+  "src/CapricornDialogue.reds": "r6/scripts/Capricorn/CapricornDialogue.reds",
+  "src/CapricornCall.reds": "r6/scripts/Capricorn/CapricornCall.reds",
+  "src/Capricorn.yaml": "r6/tweaks/Capricorn.yaml",
+  "src/Capricorn/init.lua": "bin/x64/plugins/cyber_engine_tweaks/mods/Capricorn/init.lua",
+  "src/capri_possess.yaml": "r6/tweaks/unlimited_cyberware/capri_possess.yaml",
+  "src/apogee_capri.yaml": "r6/tweaks/unlimited_cyberware/apogee_capri.yaml",
+  "assets/capri_helper_green.archive": "archive/pc/mod/capri_helper_green.archive",
+  "assets/capri_possession_visuals.archive": "archive/pc/mod/capri_possession_visuals.archive"
+}

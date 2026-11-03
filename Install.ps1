@@ -1,3 +1,4 @@
+[CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Low')]
 param([string]$GameRoot = 'E:\SteamLibrary\steamapps\common\Cyberpunk 2077')
 $ErrorActionPreference = 'Stop'
 $taskRoot = (Resolve-Path -LiteralPath $GameRoot).Path
@@ -7,48 +8,51 @@ if (!(Test-Path -LiteralPath (Join-Path $taskRoot 'bin\x64\Cyberpunk2077.exe')))
 if (Get-Process -Name Cyberpunk2077 -ErrorAction SilentlyContinue) {
   throw 'Please fully quit Cyberpunk before installing this snapshot.'
 }
-$taskBackup = Join-Path $taskRoot ('_redscript_update\capri-qol-install-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
-$taskFiles = @{
-  'init.lua' = 'bin\x64\plugins\cyber_engine_tweaks\mods\CapriCompanionQoL\init.lua'
-  'capri_summon.reds' = 'r6\scripts\capri_summon\capri_summon.reds'
-  'CapricornDialogue.reds' = 'r6\scripts\Capricorn\CapricornDialogue.reds'
-  'CapricornCall.reds' = 'r6\scripts\Capricorn\CapricornCall.reds'
-  'Capricorn.yaml' = 'r6\tweaks\Capricorn.yaml'
-  'Capricorn\init.lua' = 'bin\x64\plugins\cyber_engine_tweaks\mods\Capricorn\init.lua'
-  'capri_possess.yaml' = 'r6\tweaks\unlimited_cyberware\capri_possess.yaml'
-  'apogee_capri.yaml' = 'r6\tweaks\unlimited_cyberware\apogee_capri.yaml'
-}
-$taskAssets = @{
-  'capri_helper_green.archive' = 'archive\pc\mod\capri_helper_green.archive'
-  'capri_possession_visuals.archive' = 'archive\pc\mod\capri_possession_visuals.archive'
-}
-foreach ($taskName in $taskFiles.Keys) {
-  $taskSource = Join-Path $PSScriptRoot ('src\' + $taskName)
-  if (!(Test-Path -LiteralPath $taskSource)) { throw "Missing source file: $taskName" }
-}
-foreach ($taskName in $taskAssets.Keys) {
-  if (!(Test-Path -LiteralPath (Join-Path $PSScriptRoot ('assets\' + $taskName)))) { throw "Missing asset: $taskName" }
-}
-foreach ($taskName in $taskFiles.Keys) {
-  $taskRelative = $taskFiles[$taskName]
-  $taskTarget = Join-Path $taskRoot $taskRelative
-  if (Test-Path -LiteralPath $taskTarget) {
-    $taskBackupFile = Join-Path $taskBackup $taskRelative
-    New-Item -ItemType Directory -Path (Split-Path $taskBackupFile -Parent) -Force | Out-Null
-    Copy-Item -LiteralPath $taskTarget -Destination $taskBackupFile
+$taskMap = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'package-map.json') -Raw | ConvertFrom-Json
+$taskPrefix = $taskRoot.TrimEnd([char[]]'\/') + [IO.Path]::DirectorySeparatorChar
+$taskProjectPrefix = $PSScriptRoot.TrimEnd([char[]]'\/') + [IO.Path]::DirectorySeparatorChar
+$taskPlan = @()
+foreach ($taskEntry in $taskMap.PSObject.Properties) {
+  $taskSource = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot $taskEntry.Name))
+  $taskTarget = [IO.Path]::GetFullPath((Join-Path $taskRoot $taskEntry.Value))
+  if (!$taskSource.StartsWith($taskProjectPrefix, [StringComparison]::OrdinalIgnoreCase) -or !$taskTarget.StartsWith($taskPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Package map contains a path outside the project or game root.'
   }
-  New-Item -ItemType Directory -Path (Split-Path $taskTarget -Parent) -Force | Out-Null
-  Copy-Item -LiteralPath (Join-Path $PSScriptRoot ('src\' + $taskName)) -Destination $taskTarget -Force
+  if (!(Test-Path -LiteralPath $taskSource -PathType Leaf)) { throw "Missing package source: $($taskEntry.Name)" }
+  $taskPlan += [pscustomobject]@{ Source = $taskSource; Target = $taskTarget; Relative = $taskEntry.Value; Existed = (Test-Path -LiteralPath $taskTarget -PathType Leaf) }
 }
-foreach ($taskName in $taskAssets.Keys) {
-  $taskTarget = Join-Path $taskRoot $taskAssets[$taskName]
-  if (Test-Path -LiteralPath $taskTarget) {
-    $taskBackupFile = Join-Path $taskBackup $taskAssets[$taskName]
+foreach ($taskDependency in @('archive\pc\mod\capricorn.archive', 'engine\tools\scc.exe', 'red4ext\plugins\Codeware\Codeware.dll', 'red4ext\plugins\TweakXL\TweakXL.dll', 'bin\x64\plugins\cyber_engine_tweaks.asi')) {
+  if (!(Test-Path -LiteralPath (Join-Path $taskRoot $taskDependency) -PathType Leaf)) { throw "Install the original mod/framework first: $taskDependency" }
+}
+if (!$PSCmdlet.ShouldProcess($taskRoot, "Back up and install $($taskPlan.Count) Capri Companion files")) { return }
+$taskBackup = Join-Path $taskRoot ('_redscript_update\capri-qol-install-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
+# Finish all backups before the first overwrite.
+foreach ($taskItem in $taskPlan) {
+  if ($taskItem.Existed) {
+    $taskBackupFile = Join-Path $taskBackup $taskItem.Relative
     New-Item -ItemType Directory -Path (Split-Path $taskBackupFile -Parent) -Force | Out-Null
-    Copy-Item -LiteralPath $taskTarget -Destination $taskBackupFile
+    Copy-Item -LiteralPath $taskItem.Target -Destination $taskBackupFile -Force
   }
-  New-Item -ItemType Directory -Path (Split-Path $taskTarget -Parent) -Force | Out-Null
-  Copy-Item -LiteralPath (Join-Path $PSScriptRoot ('assets\' + $taskName)) -Destination $taskTarget -Force
 }
-Write-Output "Installed Capri Companion QoL. Backup: $taskBackup"
-Write-Output 'Restart Cyberpunk and open the CET overlay to find Capri Companion.'
+$taskWritten = [Collections.Generic.List[object]]::new()
+try {
+  foreach ($taskItem in $taskPlan) {
+    New-Item -ItemType Directory -Path (Split-Path $taskItem.Target -Parent) -Force | Out-Null
+    $taskWritten.Add($taskItem)
+    Copy-Item -LiteralPath $taskItem.Source -Destination $taskItem.Target -Force
+    if ((Get-FileHash -LiteralPath $taskItem.Source).Hash -ne (Get-FileHash -LiteralPath $taskItem.Target).Hash) { throw "Installed file did not verify: $($taskItem.Relative)" }
+  }
+} catch {
+  $taskInstallError = $_
+  foreach ($taskItem in $taskWritten) {
+    if ($taskItem.Existed) {
+      Copy-Item -LiteralPath (Join-Path $taskBackup $taskItem.Relative) -Destination $taskItem.Target -Force
+    } elseif (Test-Path -LiteralPath $taskItem.Target -PathType Leaf) {
+      # Targets were individually validated inside the named game directory.
+      Remove-Item -LiteralPath $taskItem.Target -Force
+    }
+  }
+  throw $taskInstallError
+}
+Write-Output "Installed and verified $($taskPlan.Count) Capri Companion files. Backup: $taskBackup"
+Write-Output 'Private test candidate. Restart Cyberpunk and test fresh possessions. Do not publish.'

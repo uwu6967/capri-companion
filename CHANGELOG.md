@@ -2,6 +2,21 @@
 
 This log documents the custom Cyberpunk mod work discussed before this repository was created, followed by current updates. Earlier entries are reconstructed from the conversation and available source snapshots; they are not a fabricated sequence of Git commits. `0.1.0-dev` names the first repository snapshot, not a stable release.
 
+## 2026-11-03 — 0.1.1-private optimization and release preparation
+
+- User chose private preparation after checking the original author's Nexus modification/asset permissions. No Nexus page, draft upload, or public release was created.
+- Shared broad NPC queries through a one-second snapshot, refreshed immediately after a player change or movement over 25 metres. Attack eligibility remains checked against current NPC state at use time.
+- Removed redundant guard selection from every helper's aggro pass. Re-select on the squad tick and when a new body joins.
+- Prune dead, detached and distant recent-enemy references; cap the list at 96 entries.
+- Death-transfer candidates must still be current combat enemies. Streaming an NPC out no longer triggers a fake death transfer.
+- Reduce the idle Sandevistan synchronization polling rate; active linking and uploads retain the fast polling rate.
+- Only durable story/ally classification changes helper friendship. Temporary enemy invulnerability no longer permanently converts that enemy's attitude to friendly.
+- Added one shared install/package map, prerequisite checks, a no-write `-WhatIf` mode, backup-before-write sequencing, installed hash verification and rollback on installation errors.
+- Added a deterministic private archive builder, payload checksums, archive round-trip tests, unsafe-path checks and rejection of public package mode.
+- Added fixture installation tests, including an injected mid-install copy failure that verifies overwritten files are restored and newly installed files are removed.
+
+**Validation:** the optimized script set compiled; LuaJIT panel checks, private archive checks and installer fixture/rollback checks passed. No live FPS measurements, mission replay or in-game release certification were performed. The candidate remains private.
+
 ## 2026-11-03 — President/mission-ally targeting mitigation
 
 **Reported:** E-triggered automatic attacks killed the president during a mission. A later report showed helpers also shooting her. Both are real regressions; previous compilation success did not prove mission safety.

@@ -128,6 +128,41 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
   public let idleSince: Float;
   public let player: wref<PlayerPuppet>;
   public let overclocks: array<ref<CapriOverclockState>>;
+  private let npcSnapshot: array<wref<NPCPuppet>>;
+  private let npcSnapshotOwner: wref<PlayerPuppet>;
+  private let npcSnapshotOrigin: Vector4;
+  private let nextNPCSnapshotAt: Float;
+
+  // Share one broad targeting query; revalidate allegiance/protection at use time.
+  public func NearbyNPCSnapshot(player: ref<PlayerPuppet>) -> array<wref<NPCPuppet>> {
+    let now = EngineTime.ToFloat(GameInstance.GetEngineTime(player.GetGame()));
+    let origin = player.GetWorldPosition();
+    if this.npcSnapshotOwner != player || now >= this.nextNPCSnapshotAt || Vector4.Distance(origin, this.npcSnapshotOrigin) > 25.0 {
+      ArrayClear(this.npcSnapshot);
+      let around = player.GetNPCsAroundObject();
+      let i = 0;
+      while i < ArraySize(around) {
+        if IsDefined(around[i]) { ArrayPush(this.npcSnapshot, around[i]); };
+        i += 1;
+      };
+      this.npcSnapshotOwner = player;
+      this.npcSnapshotOrigin = origin;
+      this.nextNPCSnapshotAt = now + 1.0;
+    };
+    return this.npcSnapshot;
+  }
+
+  private func PruneRecentEnemies(player: ref<PlayerPuppet>) -> Void {
+    let origin = player.GetWorldPosition();
+    let i = ArraySize(this.recentEnemies) - 1;
+    while i >= 0 {
+      let enemy = this.recentEnemies[i];
+      if !IsDefined(enemy) || !enemy.IsAttached() || CapricornProjectQuickhack.HostFinished(enemy) || Vector4.Distance(origin, enemy.GetWorldPosition()) > 150.0 {
+        ArrayErase(this.recentEnemies, i);
+      };
+      i -= 1;
+    };
+  }
 
   public static func Get() -> ref<CapriSummonSystem> {
     return GameInstance.GetScriptableSystemsContainer(GetGameInstance()).Get(n"CapriSummonSystem") as CapriSummonSystem;
@@ -219,16 +254,23 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
     };
     this.ClearAllyThreats(player);
     this.SelectGuard();
+    this.PruneRecentEnemies(player);
     let i = 0;
     while i < ArraySize(this.hosts) {
       let host = this.hosts[i];
-      if !IsDefined(host) || !host.IsAttached() || host.IsDead() {
+      if !IsDefined(host) || !host.IsAttached() {
+        // Streaming an NPC out is not a death and must not duplicate bodies.
+        this.RemoveOverclock(host);
+        ArrayErase(this.hosts, i);
+      } else {
+      if host.IsDead() {
         this.Hop(player, i);
       } else {
         this.AggroNearby(player, host);
         this.RecoverStalledMovement(player, host);
         this.UpdateRecoveryAndOverdrive(player, host);
         i += 1;
+      };
       };
     };
     this.IdleChatter(player);
@@ -300,7 +342,7 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
       i = 0;
       while i < ArraySize(candidates) {
         let enemy = candidates[i];
-      if IsDefined(enemy) && enemy.IsAttached() && !enemy.IsDead() && !this.IsHost(enemy) && !CapriSummonSystem.IsProtectedNPC(enemy) {
+      if IsDefined(enemy) && enemy.IsAttached() && !enemy.IsDead() && !this.IsHost(enemy) && this.IsCombatEnemy(enemy, player) {
           let distance = Vector4.Distance(origin, enemy.GetWorldPosition());
           if distance <= 30.0 {
             let score = this.BodyStrength(enemy);
@@ -342,6 +384,7 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
     npc.GetAIControllerComponent().SetBehaviorArgument(n"CombatTarget", null);
     // Reserve the body immediately so simultaneous death transfers respect the cap.
     ArrayPush(this.hosts, npc);
+    this.SelectGuard();
     this.ApplyOverclock(npc);
     this.ClearAllyThreats(player);
     npc.CapriShowHelperMarker();
@@ -370,11 +413,13 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
   }
 
   public func AggroNearby(player: ref<PlayerPuppet>, host: ref<NPCPuppet>) -> Void {
-    this.SelectGuard();
     let enemies = this.HostilesNear(player, 120.0);
     let recent = 0;
     while recent < ArraySize(enemies) {
-      if !ArrayContains(this.recentEnemies, enemies[recent]) { ArrayPush(this.recentEnemies, enemies[recent]); };
+      if !ArrayContains(this.recentEnemies, enemies[recent]) {
+        if ArraySize(this.recentEnemies) >= 96 { ArrayErase(this.recentEnemies, 0); };
+        ArrayPush(this.recentEnemies, enemies[recent]);
+      };
       recent += 1;
     };
     let target = this.AssignedTarget(host);
@@ -594,7 +639,7 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
 
   public func HostilesNear(player: ref<PlayerPuppet>, range: Float) -> array<ref<NPCPuppet>> {
     let found: array<ref<NPCPuppet>>;
-    let around = player.GetNPCsAroundObject();
+    let around = this.NearbyNPCSnapshot(player);
     let origin = player.GetWorldPosition();
     let i = 0;
     while i < ArraySize(around) {
@@ -618,7 +663,7 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
   }
 
   public func ClearAllyThreats(player: ref<PlayerPuppet>) -> Void {
-    let nearby = player.GetNPCsAroundObject();
+    let nearby = this.NearbyNPCSnapshot(player);
     let i = 0;
     while i < ArraySize(this.hosts) {
       let host = this.hosts[i];
@@ -638,7 +683,7 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
           j = 0;
           while j < ArraySize(nearby) {
             let ally = nearby[j];
-            if IsDefined(ally) && ally != host && !this.IsHost(ally) && (CapriSummonSystem.IsProtectedNPC(ally) || Equals(GameObject.GetAttitudeTowards(ally, player), EAIAttitude.AIA_Friendly) || Equals(GameObject.GetAttitudeTowards(player, ally), EAIAttitude.AIA_Friendly)) {
+            if IsDefined(ally) && ally != host && !this.IsHost(ally) && (CapriSummonSystem.IsStoryProtectedNPC(ally) || Equals(GameObject.GetAttitudeTowards(ally, player), EAIAttitude.AIA_Friendly) || Equals(GameObject.GetAttitudeTowards(player, ally), EAIAttitude.AIA_Friendly)) {
               host.GetAttitudeAgent().SetAttitudeTowards(ally.GetAttitudeAgent(), EAIAttitude.AIA_Friendly);
               ally.GetAttitudeAgent().SetAttitudeTowards(host.GetAttitudeAgent(), EAIAttitude.AIA_Friendly);
               tracker.RemoveThreat(tracker.MapThreat(ally));
@@ -772,6 +817,9 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
     };
     ArrayClear(this.hosts);
     ArrayClear(this.recentEnemies);
+    ArrayClear(this.npcSnapshot);
+    this.npcSnapshotOwner = null;
+    this.nextNPCSnapshotAt = 0.0;
     this.sharedTarget = null;
     this.guard = null;
     this.active = false;
@@ -1133,7 +1181,7 @@ public class CapriSandevistanSync extends DelayCallback {
       this.wasLinked = false;
       if !inMenu { this.CancelPending(); };
     };
-    GameInstance.GetDelaySystem(game).DelayCallback(this, 0.1, false);
+    GameInstance.GetDelaySystem(game).DelayCallback(this, active ? 0.1 : 0.25, false);
   }
   public func CancelPending() -> Void {
     if !IsDefined(this.pending) { return; };

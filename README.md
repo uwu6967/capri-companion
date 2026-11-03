@@ -2,6 +2,8 @@
 
 Private development snapshot for the custom Capricorn possession and Apogee Sandevistan integration. **Experimental: mission-target safety is not yet verified in-game.**
 
+Current candidate: **0.1.1-private**. The user chose private preparation after the original author's sharing permissions were checked. Nothing has been submitted to Nexus.
+
 History: [CHANGELOG.md](CHANGELOG.md). Current limitations: [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md). Validation: [docs/VALIDATION.md](docs/VALIDATION.md).
 
 Installed extension for this Cyberpunk 2077 setup, built November 3, 2026.
@@ -45,6 +47,8 @@ Settings save automatically in the installed mod's `settings.json`. OFF preferen
 - `src/capri_possess.yaml`: possession action and quick-upload records.
 - `src/apogee_capri.yaml`: existing Apogee duration/recharge overrides (60-second base duration, 5-second recharge).
 - `Install.ps1`: backs up affected files and installs this snapshot to the named game root. Existing panel preferences are preserved.
+- `package-map.json`: shared source-to-game layout for the installer and archive builder.
+- `tools/build_private.py`: builds a verified private test ZIP; it does not support public publishing.
 - `tests/test_panel.py`: LuaJIT checks with a mocked game API.
 
 This project depends on the installed original Capricorn scripts, custom green archives, redscript, TweakXL, CET and this setup's existing frameworks. It is not a standalone replacement for the original mod. Keep all active companion sources synchronized with this project when making later changes.
@@ -70,6 +74,17 @@ Run panel checks with:
 ```powershell
 uv run --with lupa python .\tests\test_panel.py
 ```
+
+Other checks and the private build:
+
+```powershell
+python -m unittest discover -s tests -p test_package.py -v
+.\tests\test_installer.ps1
+.\Install.ps1 -WhatIf
+python .\tools\build_private.py
+```
+
+The installer fixture tests use a temporary fake game folder; they do not launch a game. The private ZIP is written under `dist/private/` with an adjacent checksum file. A real installation requires the original Capricorn archive and installed frameworks, stops if Cyberpunk is running, backs up all affected files first, and verifies each written file. A failed write triggers rollback of files already touched. See [docs/PERFORMANCE.md](docs/PERFORMANCE.md) and the unpublished [Nexus description draft](docs/NEXUS_DRAFT.md).
 
 Pre-update companion backup:
 `E:\SteamLibrary\steamapps\common\Cyberpunk 2077\_redscript_update\capri-qol-backup-20261103-023814\capri_summon.reds`

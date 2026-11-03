@@ -1,0 +1,7 @@
+{
+  "visibility": "private",
+  "author_permission": "not_granted",
+  "mission_safety_test": "not_verified",
+  "nexus_upload": "not_authorized_for_current_materials",
+  "note": "User chose private preparation on 2026-11-03. Contains modified upstream files and derived assets. Do not publish this package."
+}

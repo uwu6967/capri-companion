@@ -1,45 +1,56 @@
 {
-  "version": "0.1.0-dev",
+  "version": "0.1.1-private",
+  "visibility": "private",
   "files": {
-    "assets/capri_helper_green.archive": {
-      "sha256": "0746f1d6a5646640dfcaeaabef2c7927e8d0a6912e7b3f5181d186bc8b50cfe5",
-      "bytes": 2109440
-    },
-    "assets/capri_possession_visuals.archive": {
-      "sha256": "79dac997cf6027341040957c6c8f59f5641773e6dd3cd48b9e49f2c916c09248",
-      "bytes": 12288
-    },
-    "src/apogee_capri.yaml": {
-      "sha256": "df12ee7c114522fd3ca38f65266fcf400d12f50fcc31a49205bc5cfd5c2c4650",
-      "bytes": 418
-    },
-    "src/capri_possess.yaml": {
-      "sha256": "72dd5466f08209a7aaf2cc4e639ae5106ee122b1de63d0b05f322d6eb3b86568",
-      "bytes": 1690
+    "src/init.lua": {
+      "sha256": "ee28c2b230ab886d08893b5a9518ad9c4718b0c16e7ff1e8327eee769919db89",
+      "bytes": 7343,
+      "install_path": "bin/x64/plugins/cyber_engine_tweaks/mods/CapriCompanionQoL/init.lua"
     },
     "src/capri_summon.reds": {
-      "sha256": "8389be80acd218615a8cb201d57129a265d0425ebb8972c47535ba8002dfb833",
-      "bytes": 61176
-    },
-    "src/Capricorn/init.lua": {
-      "sha256": "eb9df6330ecad6c2a35036b08e4e9eb198b6eab3ff87c9dc1edac8bf8ceea374",
-      "bytes": 48521
-    },
-    "src/Capricorn.yaml": {
-      "sha256": "616def7ce8fa7afd649609c451a70dc368b97dd89f747224390bb800959b4bed",
-      "bytes": 12787
-    },
-    "src/CapricornCall.reds": {
-      "sha256": "aaca03d7de81e6860fee42eac0564579b16b73e3b3f59ffa3eabb99747b88162",
-      "bytes": 104709
+      "sha256": "1ea7fddfee038c149dddba91d4c8e834ef5087fb44bcfae361bf2605c218956b",
+      "bytes": 63139,
+      "install_path": "r6/scripts/capri_summon/capri_summon.reds"
     },
     "src/CapricornDialogue.reds": {
       "sha256": "b425f2b5edd7234a64ddd13a724ada98dd80f087da2259f7e5996e7b6653505b",
-      "bytes": 222587
+      "bytes": 222587,
+      "install_path": "r6/scripts/Capricorn/CapricornDialogue.reds"
     },
-    "src/init.lua": {
-      "sha256": "ee28c2b230ab886d08893b5a9518ad9c4718b0c16e7ff1e8327eee769919db89",
-      "bytes": 7343
+    "src/CapricornCall.reds": {
+      "sha256": "aaca03d7de81e6860fee42eac0564579b16b73e3b3f59ffa3eabb99747b88162",
+      "bytes": 104709,
+      "install_path": "r6/scripts/Capricorn/CapricornCall.reds"
+    },
+    "src/Capricorn.yaml": {
+      "sha256": "616def7ce8fa7afd649609c451a70dc368b97dd89f747224390bb800959b4bed",
+      "bytes": 12787,
+      "install_path": "r6/tweaks/Capricorn.yaml"
+    },
+    "src/Capricorn/init.lua": {
+      "sha256": "eb9df6330ecad6c2a35036b08e4e9eb198b6eab3ff87c9dc1edac8bf8ceea374",
+      "bytes": 48521,
+      "install_path": "bin/x64/plugins/cyber_engine_tweaks/mods/Capricorn/init.lua"
+    },
+    "src/capri_possess.yaml": {
+      "sha256": "72dd5466f08209a7aaf2cc4e639ae5106ee122b1de63d0b05f322d6eb3b86568",
+      "bytes": 1690,
+      "install_path": "r6/tweaks/unlimited_cyberware/capri_possess.yaml"
+    },
+    "src/apogee_capri.yaml": {
+      "sha256": "df12ee7c114522fd3ca38f65266fcf400d12f50fcc31a49205bc5cfd5c2c4650",
+      "bytes": 418,
+      "install_path": "r6/tweaks/unlimited_cyberware/apogee_capri.yaml"
+    },
+    "assets/capri_helper_green.archive": {
+      "sha256": "0746f1d6a5646640dfcaeaabef2c7927e8d0a6912e7b3f5181d186bc8b50cfe5",
+      "bytes": 2109440,
+      "install_path": "archive/pc/mod/capri_helper_green.archive"
+    },
+    "assets/capri_possession_visuals.archive": {
+      "sha256": "79dac997cf6027341040957c6c8f59f5641773e6dd3cd48b9e49f2c916c09248",
+      "bytes": 12288,
+      "install_path": "archive/pc/mod/capri_possession_visuals.archive"
     }
   }
 }
