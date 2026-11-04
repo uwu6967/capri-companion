@@ -2,7 +2,7 @@
 
 Private development snapshot for the custom Capricorn possession and Apogee Sandevistan integration. **Experimental: mission-target safety is not yet verified in-game.**
 
-Current candidate: **0.1.1-private**. The user chose private preparation after the original author's sharing permissions were checked. Nothing has been submitted to Nexus.
+Current candidate: **0.1.2-private**. The user chose private preparation after the original author's sharing permissions were checked. Nothing has been submitted to Nexus.
 
 History: [CHANGELOG.md](CHANGELOG.md). Current limitations: [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md). Validation: [docs/VALIDATION.md](docs/VALIDATION.md).
 
@@ -25,7 +25,7 @@ Fully quit and restart Cyberpunk after installation. Load a save, then open the 
 - **Upload timing:** select the random automatic attack upload range, 0.5–5 seconds. Defaults remain 1–3 real seconds. New timing applies to the next upload.
 - **Restore QoL defaults:** restores these switches and timings; does not change your inventory, save, or key bindings.
 
-The panel shows helper count, health, distance, follow mode and whether Sandevistan is active. It draws only while the overlay is open.
+The panel shows candidate version, helper count, health, distance, follow mode and whether Sandevistan is active. Each living helper also reports engaging, following/guarding, waiting for a safe target, or pausing for a story scene. Drone/mech bodies are labeled separately. It draws only while the overlay is open.
 
 ## Automatic squad roles
 
@@ -69,7 +69,7 @@ Automatic attacks previously used a force-kill fallback and could select a missi
 
 This update does not undo any NPC death already recorded in a save. Restart and load a checkpoint from before that death. Do not overwrite that checkpoint while checking the fix.
 
-A subsequent report that helpers were shooting the president prompted a second mitigation: record-level persistent identity and main/side-quest affiliation checks, Myers/Rosalind/president identity exclusions, clearing protected allies from helper threat lists, and a final helper damage-stage check. The conservative record filter can also exclude some mission enemies from helper attacks. This is compiled and installed, but not a confirmed in-mission fix.
+A subsequent report that helpers were shooting the president prompted record-level identity and mission checks, Myers/Rosalind/president identity exclusions, threat cleanup, and a final helper damage-stage check. The November 4 candidate separates weapon combat from possession: generic hostile mission enemies may be helper weapon targets during an active fight even when quest-marked. Persistent story identities, companions, civilians, children, immortality/invulnerability and current friendly allegiance still block helper attacks. Possession and automatic Blackwall keep their stricter quest exclusions. Protection alone no longer makes an enemy friendly. This is compiled but still requires an in-mission replay after restart and fresh possessions.
 
 Run panel checks with:
 

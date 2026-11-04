@@ -55,7 +55,8 @@ def build(root=ROOT):
     ).encode()
     for name in ("CHANGELOG.md", "THIRD_PARTY_NOTICES.md", "docs/KNOWN_ISSUES.md",
                  "docs/PLAYER_GUIDE.md", "docs/SETTINGS.md", "docs/FAQ.md",
-                 "docs/CREDITS.md", "docs/NEXUS_DRAFT.md"):
+                 "docs/CREDITS.md", "docs/NEXUS_DRAFT.md", "docs/SCENARIOS.md",
+                 "docs/PERFORMANCE.md", "docs/VALIDATION.md"):
         payload["CapriCompanionQoL-docs/" + name] = (root / name).read_bytes()
     output = root / "dist" / "private"
     output.mkdir(parents=True, exist_ok=True)

@@ -1,6 +1,6 @@
 # Capri Companion — player tutorial
 
-**0.1.1-private: personal test candidate, not a public release.** Mission-ally protection is implemented but not verified in the president mission. Automatic Sandevistan attacks default OFF. Do not treat this as a stable, mission-tested download.
+**0.1.2-private: personal test candidate, not a public release.** Mission-ally protection is implemented but not verified in the president mission. Automatic Sandevistan attacks default OFF. Do not treat this as a stable, mission-tested download.
 
 ## What you need
 

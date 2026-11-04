@@ -2,6 +2,25 @@
 
 This log documents the custom Cyberpunk mod work discussed before this repository was created, followed by current updates. Earlier entries are reconstructed from the conversation and available source snapshots; they are not a fabricated sequence of Git commits. `0.1.0-dev` names the first repository snapshot, not a stable release.
 
+## 2026-11-04 — 0.1.2-private mission enemy targeting and helper damage
+
+- Split helper weapon target protection from the stricter possession and automatic Blackwall protection. Ordinary hostile mission enemies are no longer excluded from helper weapon combat solely because of runtime quest flags or main/side-quest affiliation. Persistent story identities, companions, civilians, children, Myers identity matches, and immortal/invulnerable NPCs remain excluded.
+- Stop turning a protected NPC friendly merely because it is protected. Friendship updates now require a current friendly relationship with V or companion status; protected NPC threats are still removed.
+- During an active fight, helpers can acquire hostile enemies without waiting for each enemy to already target V or a helper personally. Outside an active fight, the existing enemy-versus-V/squad combat checks remain required.
+- Check current protection, scene tier and allegiance at damage resolution without requiring a transient combat-target flag. This avoids discarding a legitimate helper bullet just because that flag changed in flight.
+- Keep death-transfer possession on the original stricter gate, so a newly legal mission weapon target cannot consume a transfer attempt intended for a possessable body.
+- Restrict fallback pistol equipping to humans/androids. A drone or mech with built-in weaponry must not receive the human pistol-equip command just because it has no handheld weapon.
+- Reject incapacitated, defeated, unconscious and disabled bodies before possession or RAM charging. Finished helpers no longer occupy living slots or receive repair/engage orders; cleanup does not force-kill an already defeated body. NPC potential-death attribution is checked when deciding whether V intentionally defeated a helper.
+- Bound the shared NPC query itself to 150 metres; retain the existing one-second cache and movement refresh margin. No frame-time improvement is claimed without measurements.
+- Give reload polling and automatic attacks a runtime generation, and delayed death transfers a separate squad generation. Old callbacks retire after a new runtime/squad, and startup waits briefly for the script system instead of dereferencing it during attachment.
+- Cancel pending automatic attacks in menus or when Sandevistan ends, and recheck operating system, toggle, player/session validity and upload ownership at completion. Cancellation does not clean up another hack's upload.
+- Use a transient helper attitude group and capture the original faction/player attitudes before conversion. Cleanup restores them only while the body is still in the mod's helper group, and tolerates an absent AI controller.
+- Relinquish a helper that gains durable story/quest protection, without killing it or starting a death-transfer split. Temporary damage protection alone does not trigger this release.
+- Suspend owned movement orders during scripted story scenes. Paused idle following still cleans up a stale combat approach.
+- Add the candidate version and readable helper activities to the panel status, plus drone/mech labels. Restore the native minimap icon after the custom helper overlay releases it.
+
+**Validation:** full modded redscript compilation, LuaJIT panel lifecycle cases and private package checks recorded in `docs/VALIDATION.md`. Gameplay observation during development showed a vehicle/story sequence and a drone in the scanner, not the reported combat failure. Scenario review is tracked in `docs/SCENARIOS.md`; it is not a gameplay test result. This remains a candidate fix pending restart, fresh possessions and mission combat replay. No save or live game input was changed.
+
 ## 2026-11-03 — Complete player documentation and Nexus listing draft
 
 - Expanded the unpublished Nexus description to cover features, installation, controls, all exposed settings, fixed balance values, compatibility limits, uninstalling and credits.

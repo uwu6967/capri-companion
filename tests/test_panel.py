@@ -94,7 +94,43 @@ def test_panel():
             lua4, _ = boot()
             lua4.globals().events.onUpdate(0.5)
             assert lua4.globals().configured[1][2] is False, "Old enabled preferences must migrate OFF"
-            print("PASS: LuaJIT load, preferences, bounds, UI toggles, input guards, reload, no player, corrupt settings")
+            # A new script system after loading a different save gets the same
+            # preferences exactly once, rather than inheriting a stale binding.
+            g4 = lua4.globals()
+            lua4.execute('''
+              oldSystem = system
+              system = {qolConfigured = false}
+              for key, value in pairs(oldSystem) do
+                if type(value) == 'function' then system[key] = value end
+              end
+            ''')
+            g4.events.onUpdate(0.5)
+            assert len(g4.configured) == 2, "Configure the replacement system"
+            g4.events.onUpdate(0.5)
+            assert len(g4.configured) == 2, "Do not repeatedly configure a replacement"
+            # Player availability does not imply that the companion system is
+            # ready during loading. Inputs and drawing must survive the gap.
+            lua4.execute("system = nil")
+            g4.events.onUpdate(0.5)
+            g4.inputs.capri_regroup(True)
+            g4.events.onOverlayOpen()
+            g4.events.onDraw()
+            assert len(g4.commands) == 0, "No game command while the system is unavailable"
+            lua4.execute("system = oldSystem; system.qolConfigured = false")
+            g4.events.onUpdate(0.5)
+            assert len(g4.configured) == 3, "Recover when the system becomes available"
+            # Restoring defaults must explicitly disable automatic attacks and
+            # preserve the complete set of settings on disk.
+            lua4.execute('''
+              ImGui.Button = function(label)
+                return label == 'Restore QoL defaults'
+              end
+            ''')
+            g4.events.onDraw()
+            restored = json.loads(Path("settings.json").read_text())
+            assert restored["autoStrike"] is False and restored["healing"] is True
+            assert restored["uploadMin"] == 1.0 and restored["uploadMax"] == 3.0
+            print("PASS: LuaJIT load, preferences, bounds, UI/input guards, corrupt settings, system replacement/loading gap, restore defaults")
         finally:
             os.chdir(previous)
 

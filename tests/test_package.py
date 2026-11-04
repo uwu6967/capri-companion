@@ -1,5 +1,6 @@
 """Package integrity, reproducibility and path-validation checks."""
 import importlib.util
+import hashlib
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -13,6 +14,19 @@ SPEC.loader.exec_module(BUILDER)
 
 
 class PackageTests(unittest.TestCase):
+    def test_documented_manifest_matches_sources(self):
+        manifest = json.loads((ROOT / "docs" / "BUILD_MANIFEST.json").read_text(encoding="utf-8"))
+        mapping = json.loads((ROOT / "package-map.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["version"], (ROOT / "VERSION").read_text().strip())
+        self.assertEqual(set(manifest["files"]), set(mapping))
+        for source, destination in mapping.items():
+            with self.subTest(source=source):
+                payload = (ROOT / source).read_bytes()
+                item = manifest["files"][source]
+                self.assertEqual(item["sha256"], hashlib.sha256(payload).hexdigest())
+                self.assertEqual(item["bytes"], len(payload))
+                self.assertEqual(item["install_path"], destination)
+
     def test_unsafe_paths(self):
         for name in ("../outside", "/absolute", "C:/absolute", "src\\file", ""):
             with self.subTest(name=name), self.assertRaises(ValueError):
@@ -28,7 +42,8 @@ class PackageTests(unittest.TestCase):
             manifest = json.loads(archive.read("CapriCompanionQoL-MANIFEST.json"))
             self.assertEqual(manifest["visibility"], "private")
             self.assertEqual(len(manifest["files"]), 10)
-            for name in ("PLAYER_GUIDE.md", "SETTINGS.md", "FAQ.md", "CREDITS.md", "NEXUS_DRAFT.md"):
+            for name in ("PLAYER_GUIDE.md", "SETTINGS.md", "FAQ.md", "CREDITS.md", "NEXUS_DRAFT.md",
+                         "SCENARIOS.md", "PERFORMANCE.md", "VALIDATION.md"):
                 self.assertIn("CapriCompanionQoL-docs/docs/" + name, archive.namelist())
             self.assertFalse(any(name.endswith("settings.json") for name in archive.namelist()))
             self.assertTrue(all(not Path(name).is_absolute() for name in archive.namelist()))

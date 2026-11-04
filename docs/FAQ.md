@@ -12,6 +12,10 @@ Not established. Earlier versions killed or attacked the president. New target, 
 
 The current filter excludes civilians, children, companions, quest/protected characters, some persistent identities and main/side-quest affiliations. This can exclude enemies you expected to hack. Other reasons are insufficient RAM, full helper slots, or a body already possessed.
 
+## Why do helpers ignore mission enemies or shoot without dealing damage?
+
+Earlier protection treated main/side-quest affiliation as a blanket weapon-target exclusion and made those NPCs friendly to helpers. It also required an enemy-versus-player/squad combat flag at damage resolution. The November 4 candidate separates weapon targeting from the stricter possession/automatic Blackwall checks, stops protection from assigning friendship, and lets helpers acquire hostile enemies during an active fight. Damage still rechecks allegiance, protected identities, immortality and scene tier. Restart and use fresh possessions to validate; this has compiled but has not yet been verified in mission combat.
+
 ## Why are some attacks no longer instant kills?
 
 The automatic force-kill fallback was removed after the mission regression. Native Blackwall damage/effects now determine the result. This build does not promise one-hit kills on every enemy.

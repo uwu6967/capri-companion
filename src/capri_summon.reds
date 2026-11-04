@@ -101,16 +101,24 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
   let capacity = this.Capacity(player);
   let mode = this.qolFollowPaused ? "Following paused" : "Following enabled";
   let sandy = GameInstance.GetTimeSystem(player.GetGame()).IsTimeDilationActive(TimeDilationHelper.GetSandevistanKey()) ? "Sandevistan linked" : "Sandevistan inactive";
-  let status = s"Helpers: \(count)/\(capacity) | \(mode)\n\(sandy)";
+  let status = s"Capri 0.1.2 | Helpers: \(count)/\(capacity) | \(mode)\n\(sandy)";
+  let storyScene = PlayerPuppet.GetSceneTier(player) != EnumInt(gamePSMHighLevel.SceneTier1);
+  if storyScene { status += "\nStory scene: helper orders paused."; };
   let i = 0;
   while i < ArraySize(this.hosts) {
     let host = this.hosts[i];
-    if IsDefined(host) && host.IsAttached() && !host.IsDead() {
+    if IsDefined(host) && host.IsAttached() && !CapricornProjectQuickhack.HostFinished(host) {
       let health = Cast<Int32>(this.HealthPercent(host));
       let distance = Cast<Int32>(Vector4.Distance(player.GetWorldPosition(), host.GetWorldPosition()));
       let body = host.IsMaxTac() ? "MaxTac" : (host.IsBoss() ? "Boss" : "Helper");
+      if Equals(host.GetNPCType(), gamedataNPCType.Drone) { body = "Drone"; };
+      if Equals(host.GetNPCType(), gamedataNPCType.Mech) { body = "Mech"; };
       let role = this.IsGuard(host) ? "Guard" : "Hunter";
-      status += s"\n\(role) / \(body): \(health)% health | \(distance) m away";
+      let target = this.AssignedTarget(host);
+      let activity = IsDefined(target) ? "Engaging enemy" : (this.qolFollowPaused ? "Following paused" : "Following / guarding");
+      if !IsDefined(target) && player.IsInCombat() { activity = "Waiting for a safe target"; };
+      if storyScene { activity = "Story scene paused"; };
+      status += s"\n\(role) / \(body): \(health)% health | \(distance) m away | \(activity)";
     };
     i += 1;
   };
@@ -128,6 +136,8 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
   public let idleSince: Float;
   public let player: wref<PlayerPuppet>;
   public let overclocks: array<ref<CapriOverclockState>>;
+  public let runtimeGeneration: Int32;
+  public let squadGeneration: Int32;
   private let npcSnapshot: array<wref<NPCPuppet>>;
   private let npcSnapshotOwner: wref<PlayerPuppet>;
   private let npcSnapshotOrigin: Vector4;
@@ -139,7 +149,8 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
     let origin = player.GetWorldPosition();
     if this.npcSnapshotOwner != player || now >= this.nextNPCSnapshotAt || Vector4.Distance(origin, this.npcSnapshotOrigin) > 25.0 {
       ArrayClear(this.npcSnapshot);
-      let around = player.GetNPCsAroundObject();
+      // Enough for the 120 m combat radius plus the 25 m movement refresh margin.
+      let around = player.GetNPCsAroundObject(150.0);
       let i = 0;
       while i < ArraySize(around) {
         if IsDefined(around[i]) { ArrayPush(this.npcSnapshot, around[i]); };
@@ -172,22 +183,39 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
   public static func IsProtectedNPC(npc: ref<NPCPuppet>) -> Bool {
     if !IsDefined(npc) { return true; };
     if CapriSummonSystem.IsStoryProtectedNPC(npc) { return true; };
+    return CapriSummonSystem.IsDamageProtectedNPC(npc);
+  }
+
+  private static func IsDamageProtectedNPC(npc: ref<NPCPuppet>) -> Bool {
     let modes = GameInstance.GetGodModeSystem(npc.GetGame());
     if modes.HasGodMode(npc.GetEntityID(), gameGodModeType.Immortal) || modes.HasGodMode(npc.GetEntityID(), gameGodModeType.Invulnerable) { return true; };
     return GameInstance.GetStatsSystem(npc.GetGame()).GetStatValue(Cast<StatsObjectID>(npc.GetEntityID()), gamedataStatType.IsInvulnerable) > 0.0;
   }
 
   public static func IsStoryProtectedNPC(npc: ref<NPCPuppet>) -> Bool {
-    if !IsDefined(npc) || npc.IsQuest() || npc.IsPlayerCompanion() || npc.IsCivilian() || npc.IsCharacterChildren() { return true; };
+    if CapriSummonSystem.IsPersistentStoryNPC(npc) || npc.IsQuest() { return true; };
     let record = npc.GetRecord();
-    if !IsDefined(record) { return true; };
-    // Runtime quest flags can be absent while a story ally is actively fighting.
-    let persistent = record.PersistentName();
-    if NotEquals(persistent, n"") && NotEquals(persistent, n"None") { return true; };
     let quest = record.Quest();
     if IsDefined(quest) && (Equals(quest.Type(), gamedataNPCQuestAffiliation.MainQuest) || Equals(quest.Type(), gamedataNPCQuestAffiliation.SideQuest)) { return true; };
+    return false;
+  }
+
+  private static func IsPersistentStoryNPC(npc: ref<NPCPuppet>) -> Bool {
+    if !IsDefined(npc) || npc.IsPlayerCompanion() || npc.IsCivilian() || npc.IsCharacterChildren() { return true; };
+    let record = npc.GetRecord();
+    if !IsDefined(record) { return true; };
+    // Keep named/persistent characters protected even if their live ally flags disappear.
+    let persistent = record.PersistentName();
+    if NotEquals(persistent, n"") && NotEquals(persistent, n"None") { return true; };
     let identity = StrLower(NameToString(record.VoiceTag()) + " " + NameToString(record.BaseAttitudeGroup()) + " " + TDBID.ToStringDEBUG(npc.GetRecordID()));
     return StrContains(identity, "myers") || StrContains(identity, "rosalind") || StrContains(identity, "president");
+  }
+
+  // Mission affiliation also labels ordinary enemies. Native helper weapon combat
+  // may target those enemies; possession and automatic Blackwall keep the stricter gate.
+  public static func IsProtectedHelperTarget(npc: ref<NPCPuppet>) -> Bool {
+    if CapriSummonSystem.IsPersistentStoryNPC(npc) { return true; };
+    return CapriSummonSystem.IsDamageProtectedNPC(npc);
   }
 
   public func IsOwnedDismissible(npc: ref<NPCPuppet>) -> Bool {
@@ -221,7 +249,7 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
     let count = 0;
     let i = 0;
     while i < ArraySize(this.hosts) {
-      if IsDefined(this.hosts[i]) && this.hosts[i].IsAttached() && !this.hosts[i].IsDead() { count += 1; };
+      if IsDefined(this.hosts[i]) && this.hosts[i].IsAttached() && !CapricornProjectQuickhack.HostFinished(this.hosts[i]) { count += 1; };
       i += 1;
     };
     return count;
@@ -229,7 +257,8 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
 
   public func PossessFromHack(player: ref<PlayerPuppet>, target: ref<NPCPuppet>) -> Void {
     if CapriSummonSystem.IsProtectedNPC(target) { return; };
-    if !IsDefined(player) || !IsDefined(target) || !target.IsAttached() || target.IsDead() || this.IsHost(target) { return; };
+    if !IsDefined(player) || !target.IsAttached() || CapricornProjectQuickhack.HostFinished(target) || this.IsHost(target) { return; };
+    if !this.QOLCanControl(player) { return; };
     if this.Count() >= this.Capacity(player) { return; };
     let pools = GameInstance.GetStatPoolsSystem(player.GetGame());
     if pools.GetStatPoolValue(Cast<StatsObjectID>(player.GetEntityID()), gamedataStatPoolType.Memory, false) < 4.0 { return; };
@@ -253,6 +282,10 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
       return;
     };
     this.ClearAllyThreats(player);
+    if PlayerPuppet.GetSceneTier(player) != EnumInt(gamePSMHighLevel.SceneTier1) {
+      this.SuspendOwnedMovement();
+      return;
+    };
     this.SelectGuard();
     this.PruneRecentEnemies(player);
     let i = 0;
@@ -263,13 +296,20 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
         this.RemoveOverclock(host);
         ArrayErase(this.hosts, i);
       } else {
-      if host.IsDead() {
+      if CapriSummonSystem.IsStoryProtectedNPC(host) {
+        // A mission can claim a previously ordinary body. Relinquish it alive,
+        // restore native allegiance and do not create replacement possessions.
+        this.Drop(player, host);
+        ArrayErase(this.hosts, i);
+      } else {
+      if CapricornProjectQuickhack.HostFinished(host) {
         this.Hop(player, i);
       } else {
         this.AggroNearby(player, host);
         this.RecoverStalledMovement(player, host);
         this.UpdateRecoveryAndOverdrive(player, host);
         i += 1;
+      };
       };
       };
     };
@@ -314,7 +354,11 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
     let dying = this.hosts[index];
     let origin = IsDefined(dying) ? dying.GetWorldPosition() : player.GetWorldPosition();
     let killer: wref<PlayerPuppet>;
-    if IsDefined(dying) { killer = dying.GetKiller() as PlayerPuppet; };
+    if IsDefined(dying) {
+      // NPC potential-death attribution also covers a nonlethal defeat.
+      let instigator = dying.GetMyKiller();
+      killer = IsDefined(instigator) ? instigator as PlayerPuppet : dying.GetKiller() as PlayerPuppet;
+    };
     let playerKill = IsDefined(killer) && killer == player;
     if IsDefined(dying) { this.Drop(player, dying); };
     ArrayErase(this.hosts, index);
@@ -322,11 +366,12 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
     let jump = new CapriDeathTransfer();
     jump.player = player;
     jump.origin = origin;
+    jump.generation = this.squadGeneration;
     GameInstance.GetDelaySystem(player.GetGame()).DelayCallback(jump, 0.8, false);
   }
 
   public func TransferAfterDeath(player: ref<PlayerPuppet>, origin: Vector4) -> Void {
-    if !this.active || !CapricornProjectQuickhack.IsDeckEquipped(player) || this.Count() >= this.Capacity(player) { return; };
+    if !this.active || !this.QOLCanControl(player) || this.Count() >= this.Capacity(player) { return; };
     let candidates = this.HostilesNear(player, 50.0);
     let i = 0;
     while i < ArraySize(this.recentEnemies) {
@@ -342,7 +387,8 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
       i = 0;
       while i < ArraySize(candidates) {
         let enemy = candidates[i];
-      if IsDefined(enemy) && enemy.IsAttached() && !enemy.IsDead() && !this.IsHost(enemy) && this.IsCombatEnemy(enemy, player) {
+        // Being a legal weapon target does not make a mission body safe to possess.
+        if IsDefined(enemy) && enemy.IsAttached() && !enemy.IsDead() && !this.IsHost(enemy) && !CapriSummonSystem.IsProtectedNPC(enemy) && this.IsCombatEnemy(enemy, player) {
           let distance = Vector4.Distance(origin, enemy.GetWorldPosition());
           if distance <= 30.0 {
             let score = this.BodyStrength(enemy);
@@ -375,8 +421,10 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
 
   public func Possess(player: ref<PlayerPuppet>, npc: ref<NPCPuppet>) -> Void {
     if CapriSummonSystem.IsProtectedNPC(npc) { return; };
-    if !IsDefined(npc) || npc.IsDead() || this.IsHost(npc) || this.Count() >= this.Capacity(player) { return; };
-    npc.GetAttitudeAgent().SetAttitudeGroup(n"capricorn_helpers");
+    if !IsDefined(player) || !npc.IsAttached() || CapricornProjectQuickhack.HostFinished(npc) || this.IsHost(npc) || this.Count() >= this.Capacity(player) { return; };
+    this.ApplyOverclock(player, npc);
+    // The helper faction belongs to this runtime, not the NPC's permanent save identity.
+    npc.GetAttitudeAgent().SetAttitudeGroupUnsavable(n"capricorn_helpers");
     npc.GetAttitudeAgent().SetAttitudeTowards(player.GetAttitudeAgent(), EAIAttitude.AIA_Friendly);
     player.GetAttitudeAgent().SetAttitudeTowards(npc.GetAttitudeAgent(), EAIAttitude.AIA_Friendly);
     let tracker = npc.GetTargetTrackerComponent();
@@ -385,7 +433,6 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
     // Reserve the body immediately so simultaneous death transfers respect the cap.
     ArrayPush(this.hosts, npc);
     this.SelectGuard();
-    this.ApplyOverclock(npc);
     this.ClearAllyThreats(player);
     npc.CapriShowHelperMarker();
     let aura = new CapriPossessionAura();
@@ -399,9 +446,12 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
   }
 
   public func ArmAndEngage(player: ref<PlayerPuppet>, npc: ref<NPCPuppet>) -> Void {
-    if !IsDefined(npc) || !npc.IsAttached() || npc.IsDead() || !this.IsHost(npc) { return; };
+    if !IsDefined(npc) || !npc.IsAttached() || CapricornProjectQuickhack.HostFinished(npc) || !this.IsHost(npc) { return; };
     GameObjectEffectHelper.StopEffectEvent(npc, n"black_wall_upload");
-    if !npc.IsMaxTac() && !npc.IsBoss() && !IsDefined(GameObject.GetActiveWeapon(npc)) {
+    let kind = npc.GetNPCType();
+    let usesHandheldWeapons = Equals(kind, gamedataNPCType.Human) || Equals(kind, gamedataNPCType.Android);
+    // Drones/mechs can fight with built-in weapons without an active handheld item.
+    if usesHandheldWeapons && !npc.IsMaxTac() && !npc.IsBoss() && !IsDefined(GameObject.GetActiveWeapon(npc)) {
       GameInstance.GetTransactionSystem(npc.GetGame()).GiveItemByTDBID(npc, t"Items.Preset_Nue_Default", 1);
       let equip = new AIEquipCommand();
       equip.itemId = t"Items.Preset_Nue_Default";
@@ -499,6 +549,21 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
   }
 
   // Temporary movement commands leave native combat roles and abilities intact.
+  private func SuspendOwnedMovement() -> Void {
+    let i = 0;
+    while i < ArraySize(this.overclocks) {
+      let state = this.overclocks[i];
+      let ai = IsDefined(state.host) ? state.host.GetAIControllerComponent() : null;
+      if IsDefined(ai) {
+        if IsDefined(state.followCommand) { ai.CancelCommand(state.followCommand); state.followCommand = null; };
+        if IsDefined(state.approachCommand) { ai.CancelCommand(state.approachCommand); state.approachCommand = null; };
+      };
+      state.approachTarget = null;
+      state.assignedTarget = null;
+      i += 1;
+    };
+  }
+
   public func UpdateFollowing(player: ref<PlayerPuppet>, host: ref<NPCPuppet>, idle: Bool) -> Void {
     idle = idle && !this.qolFollowPaused;
     let ai = host.GetAIControllerComponent();
@@ -548,7 +613,6 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
     let position = host.GetWorldPosition();
     let assigned = this.AssignedTarget(host);
     let fighting = IsDefined(assigned) && !CapricornProjectQuickhack.HostFinished(assigned);
-    if !fighting && this.qolFollowPaused { return; };
     let destination: wref<GameObject> = player;
     if fighting { destination = assigned; };
     let weapon = GameObject.GetActiveWeapon(host);
@@ -565,6 +629,8 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
           state.approachCommand = null;
           state.approachTarget = null;
         };
+        // Pausing idle following must still clean up the last combat approach.
+        if !fighting && this.qolFollowPaused { return; };
         if !shouldMove || distance < (fighting ? 4.0 : 6.0) || Vector4.Distance(position, state.lastMovePosition) > 0.75 {
           state.lastMovePosition = position;
           state.lastMoveAt = now;
@@ -616,10 +682,19 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
     };
   }
 
+  public func IsHostileHelperTarget(npc: ref<NPCPuppet>, player: ref<PlayerPuppet>) -> Bool {
+    if !IsDefined(player) || !IsDefined(npc) || !npc.IsAttached() || CapricornProjectQuickhack.HostFinished(npc) || this.IsHost(npc) { return false; };
+    if PlayerPuppet.GetSceneTier(player) != EnumInt(gamePSMHighLevel.SceneTier1) { return false; };
+    if CapriSummonSystem.IsProtectedHelperTarget(npc) { return false; };
+    return Equals(GameObject.GetAttitudeTowards(npc, player), EAIAttitude.AIA_Hostile)
+      && NotEquals(GameObject.GetAttitudeTowards(player, npc), EAIAttitude.AIA_Friendly);
+  }
+
   public func IsCombatEnemy(npc: ref<NPCPuppet>, player: ref<PlayerPuppet>) -> Bool {
-    if !IsDefined(npc) || CapricornProjectQuickhack.HostFinished(npc) || this.IsHost(npc) { return false; };
-    if CapriSummonSystem.IsProtectedNPC(npc) || NotEquals(GameObject.GetAttitudeTowards(npc, player), EAIAttitude.AIA_Hostile) || Equals(GameObject.GetAttitudeTowards(player, npc), EAIAttitude.AIA_Friendly) { return false; };
-    if NPCPuppet.IsInCombatWithTarget(npc, player) { return true; };
+    if !this.IsHostileHelperTarget(npc, player) { return false; };
+    // A hostile mission enemy need not already be tracking V personally. Requiring
+    // that relationship prevents helpers from starting or continuing an active fight.
+    if player.IsInCombat() || NPCPuppet.IsInCombatWithTarget(npc, player) { return true; };
     let i = 0;
     while i < ArraySize(this.hosts) {
       if IsDefined(this.hosts[i]) && NPCPuppet.IsInCombatWithTarget(npc, this.hosts[i]) { return true; };
@@ -683,10 +758,17 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
           j = 0;
           while j < ArraySize(nearby) {
             let ally = nearby[j];
-            if IsDefined(ally) && ally != host && !this.IsHost(ally) && (CapriSummonSystem.IsStoryProtectedNPC(ally) || Equals(GameObject.GetAttitudeTowards(ally, player), EAIAttitude.AIA_Friendly) || Equals(GameObject.GetAttitudeTowards(player, ally), EAIAttitude.AIA_Friendly)) {
-              host.GetAttitudeAgent().SetAttitudeTowards(ally.GetAttitudeAgent(), EAIAttitude.AIA_Friendly);
-              ally.GetAttitudeAgent().SetAttitudeTowards(host.GetAttitudeAgent(), EAIAttitude.AIA_Friendly);
-              tracker.RemoveThreat(tracker.MapThreat(ally));
+            if IsDefined(ally) && ally != host && !this.IsHost(ally) {
+              let friendly = ally.IsPlayerCompanion() || Equals(GameObject.GetAttitudeTowards(ally, player), EAIAttitude.AIA_Friendly) || Equals(GameObject.GetAttitudeTowards(player, ally), EAIAttitude.AIA_Friendly);
+              if friendly || CapriSummonSystem.IsProtectedHelperTarget(ally) {
+                // Protected is not an allegiance. Never turn an enemy friendly just
+                // because a quest flag or a temporary immortality mode protects it.
+                if friendly {
+                  host.GetAttitudeAgent().SetAttitudeTowards(ally.GetAttitudeAgent(), EAIAttitude.AIA_Friendly);
+                  ally.GetAttitudeAgent().SetAttitudeTowards(host.GetAttitudeAgent(), EAIAttitude.AIA_Friendly);
+                };
+                tracker.RemoveThreat(tracker.MapThreat(ally));
+              };
             };
             j += 1;
           };
@@ -716,9 +798,13 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
   }
 
 
-  public func ApplyOverclock(npc: ref<NPCPuppet>) -> Void {
+  public func ApplyOverclock(player: ref<PlayerPuppet>, npc: ref<NPCPuppet>) -> Void {
     let state = new CapriOverclockState();
     state.host = npc;
+    state.originalPlayer = player;
+    state.originalAttitudeGroup = npc.GetAttitudeAgent().GetAttitudeGroup();
+    state.originalHostAttitude = GameObject.GetAttitudeTowards(npc, player);
+    state.originalPlayerAttitude = GameObject.GetAttitudeTowards(player, npc);
     state.ownedExecutionAllowed = !CapriSummonSystem.IsProtectedNPC(npc);
     let stats = GameInstance.GetStatsSystem(npc.GetGame());
     let id = Cast<StatsObjectID>(npc.GetEntityID());
@@ -739,7 +825,7 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
   }
 
   public func UpdateRecoveryAndOverdrive(player: ref<PlayerPuppet>, npc: ref<NPCPuppet>) -> Void {
-    if npc.IsDead() || !this.IsHost(npc) { return; };
+    if CapricornProjectQuickhack.HostFinished(npc) || !this.IsHost(npc) { return; };
     let now = EngineTime.ToFloat(GameInstance.GetEngineTime(npc.GetGame()));
     let pools = GameInstance.GetStatPoolsSystem(npc.GetGame());
     let id = Cast<StatsObjectID>(npc.GetEntityID());
@@ -778,9 +864,22 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
       let state = this.overclocks[i];
       if !IsDefined(state.host) || state.host == npc {
         if IsDefined(state.host) {
+          let agent = state.host.GetAttitudeAgent();
+          if IsDefined(agent) && Equals(agent.GetAttitudeGroup(), n"capricorn_helpers") {
+            agent.SetAttitudeGroupUnsavable(state.originalAttitudeGroup);
+            if IsDefined(state.originalPlayer) && IsDefined(state.originalPlayer.GetAttitudeAgent()) {
+              agent.SetAttitudeTowards(state.originalPlayer.GetAttitudeAgent(), state.originalHostAttitude);
+              state.originalPlayer.GetAttitudeAgent().SetAttitudeTowards(agent, state.originalPlayerAttitude);
+            };
+          };
           if state.host.HasIndividualTimeDilation(n"CapriOverdrive") || state.host.HasIndividualTimeDilation(n"CapriSandevistanLink") { state.host.UnsetIndividualTimeDilation(n""); };
-          if IsDefined(state.followCommand) { state.host.GetAIControllerComponent().CancelCommand(state.followCommand); };
-          if IsDefined(state.approachCommand) { state.host.GetAIControllerComponent().CancelCommand(state.approachCommand); };
+          let ai = state.host.GetAIControllerComponent();
+          if IsDefined(ai) {
+            if IsDefined(state.followCommand) { ai.CancelCommand(state.followCommand); };
+            if IsDefined(state.approachCommand) { ai.CancelCommand(state.approachCommand); };
+            let current = FromVariant<wref<GameObject>>(ai.GetBehaviorArgument(n"CombatTarget"));
+            if IsDefined(state.assignedTarget) && current == state.assignedTarget { ai.SetBehaviorArgument(n"CombatTarget", null); };
+          };
           let stats = GameInstance.GetStatsSystem(state.host.GetGame());
           let id = Cast<StatsObjectID>(state.host.GetEntityID());
           let j = 0;
@@ -802,7 +901,7 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
   public func Drop(player: ref<PlayerPuppet>, npc: ref<NPCPuppet>, opt intentionalOwnedHit: Bool) -> Void {
     let ownedExecution = intentionalOwnedHit && this.IsOwnedDismissible(npc);
     if IsDefined(npc) { npc.CapriHideHelperMarker(); GameObjectEffectHelper.StopEffectEvent(npc, n"black_wall_upload"); this.RemoveOverclock(npc); };
-    if !IsDefined(npc) || !npc.IsAttached() || npc.IsDead() { return; };
+    if !IsDefined(npc) || !npc.IsAttached() || CapricornProjectQuickhack.HostFinished(npc) { return; };
     if CapriSummonSystem.IsProtectedNPC(npc) && !ownedExecution { return; };
     // Keep the Blackwall death flash without a player-owned grenade attack.
     GameObjectEffectHelper.StartEffectEvent(npc, n"black_wall_activation");
@@ -810,6 +909,8 @@ public func QOLStatus(player: ref<PlayerPuppet>) -> String {
   }
 
   public func Release(player: ref<PlayerPuppet>) -> Void {
+    // Invalidate scheduled transfers before a new squad can be created.
+    this.squadGeneration += 1;
     let i = 0;
     while i < ArraySize(this.hosts) {
       this.Drop(player, this.hosts[i]);
@@ -854,7 +955,7 @@ private final func TranslateChoicesIntoQuickSlotCommands(puppetActions: script_r
   wrappedMethod(puppetActions, commands);
   let npc = this as NPCPuppet;
   let player = GetPlayer(this.GetGame());
-  if !IsDefined(npc) || !IsDefined(player) || npc.IsDead() || !CapricornProjectQuickhack.IsDeckEquipped(player) { return; };
+  if !IsDefined(npc) || !IsDefined(player) || CapricornProjectQuickhack.HostFinished(npc) || !CapricornProjectQuickhack.IsDeckEquipped(player) { return; };
   let action = new PuppetAction();
   action.SetObjectActionID(t"QuickHack.CapriPossess");
   action.RegisterAsRequester(this.GetEntityID());
@@ -905,11 +1006,15 @@ private final func TranslateChoicesIntoQuickSlotCommands(puppetActions: script_r
 
 public class CapriSummonTick extends DelayCallback {
   public let player: wref<PlayerPuppet>;
+  public let generation: Int32;
   public func Call() -> Void {
     if !IsDefined(this.player) || !this.player.IsAttached() { return; };
-    CapriSummonSystem.Get().Tick(this.player);
+    let system = CapriSummonSystem.Get();
+    if !IsDefined(system) || this.generation != system.runtimeGeneration { return; };
+    system.Tick(this.player);
     let again = new CapriSummonTick();
     again.player = this.player;
+    again.generation = this.generation;
     GameInstance.GetDelaySystem(this.player.GetGame()).DelayCallback(again, 1.0, false);
   }
 }
@@ -918,13 +1023,34 @@ public class CapriSummonTick extends DelayCallback {
 protected cb func OnGameAttached() -> Bool {
   wrappedMethod();
   if this.IsReplacer() { return true; };
-  let tick = new CapriSummonTick();
-  tick.player = this;
-  GameInstance.GetDelaySystem(this.GetGame()).DelayCallback(tick, 1.0, false);
-  let sync = new CapriSandevistanSync();
-  sync.player = this;
-  GameInstance.GetDelaySystem(this.GetGame()).DelayCallback(sync, 0.1, false);
+  let start = new CapriRuntimeStart();
+  start.player = this;
+  GameInstance.GetDelaySystem(this.GetGame()).DelayCallback(start, 0.1, false);
   return true;
+}
+
+public class CapriRuntimeStart extends DelayCallback {
+  public let player: wref<PlayerPuppet>;
+  public let attempts: Int32;
+  public func Call() -> Void {
+    if !IsDefined(this.player) || !this.player.IsAttached() { return; };
+    let system = CapriSummonSystem.Get();
+    if !IsDefined(system) {
+      this.attempts += 1;
+      if this.attempts < 40 { GameInstance.GetDelaySystem(this.player.GetGame()).DelayCallback(this, 0.25, false); };
+      return;
+    };
+    system.runtimeGeneration += 1;
+    system.squadGeneration += 1;
+    let tick = new CapriSummonTick();
+    tick.player = this.player;
+    tick.generation = system.runtimeGeneration;
+    GameInstance.GetDelaySystem(this.player.GetGame()).DelayCallback(tick, 1.0, false);
+    let sync = new CapriSandevistanSync();
+    sync.player = this.player;
+    sync.generation = system.runtimeGeneration;
+    GameInstance.GetDelaySystem(this.player.GetGame()).DelayCallback(sync, 0.1, false);
+  }
 }
 
 // Separate overhead portrait for possessed allies; scanner artwork is unchanged.
@@ -1081,6 +1207,10 @@ private final func CapriUpdateCompanionHUD() -> Void {
 
 public class CapriOverclockState extends IScriptable {
   public let host: wref<NPCPuppet>;
+  public let originalPlayer: wref<PlayerPuppet>;
+  public let originalAttitudeGroup: CName;
+  public let originalHostAttitude: EAIAttitude;
+  public let originalPlayerAttitude: EAIAttitude;
   public let ownedExecutionAllowed: Bool;
   public let modifiers: array<ref<gameStatModifierData>>;
   public let followCommand: ref<AICommand>;
@@ -1102,6 +1232,7 @@ public class CapriOverclockState extends IScriptable {
 // Short real-time overrides expire automatically after slow motion ends.
 public class CapriSandevistanSync extends DelayCallback {
   public let player: wref<PlayerPuppet>;
+  public let generation: Int32;
   public let strikeTicks: Int32;
   public let wasLinked: Bool;
   public let pending: ref<CapriSandevistanStrikeAction>;
@@ -1111,6 +1242,7 @@ public class CapriSandevistanSync extends DelayCallback {
     let game = this.player.GetGame();
     let inMenu = GameInstance.GetBlackboardSystem(game).Get(GetAllBlackboardDefs().UI_System).GetBool(GetAllBlackboardDefs().UI_System.IsInMenu);
     let system = CapriSummonSystem.Get();
+    if !IsDefined(system) || this.generation != system.runtimeGeneration { this.CancelPending(); return; };
     let active = !inMenu && !this.player.IsDead() && IsDefined(system) && CapricornProjectQuickhack.IsDeckEquipped(this.player) && GameInstance.GetTimeSystem(game).IsTimeDilationActive(TimeDilationHelper.GetSandevistanKey());
     if active {
       if !this.wasLinked { this.wasLinked = true; system.Speak(this.player, "There. Now we can both be unreasonable."); };
@@ -1127,6 +1259,10 @@ public class CapriSandevistanSync extends DelayCallback {
         i += 1;
       };
       if !system.QOLAutoStrikeEnabled() { this.CancelPending(); };
+      if IsDefined(this.pending) {
+        let currentUpload = IsDefined(this.pending.victim) ? this.pending.victim.GetCurrentlyUploadingAction() : null;
+        if IsDefined(currentUpload) && currentUpload != this.pending { this.CancelPending(); };
+      };
       if IsDefined(this.pending) {
         this.pendingTicks += 1;
         // Use real elapsed time so Sandevistan cannot stretch a short upload.
@@ -1160,6 +1296,7 @@ public class CapriSandevistanSync extends DelayCallback {
             let action = new CapriSandevistanStrikeAction();
             action.owner = this.player;
             action.victim = closest;
+            action.generation = this.generation;
             action.uploadDuration = system.QOLUploadDuration();
             action.startedAt = EngineTime.ToFloat(GameInstance.GetEngineTime(game));
             action.m_target = closest;
@@ -1179,7 +1316,7 @@ public class CapriSandevistanSync extends DelayCallback {
     } else {
       this.strikeTicks = 0;
       this.wasLinked = false;
-      if !inMenu { this.CancelPending(); };
+      this.CancelPending();
     };
     GameInstance.GetDelaySystem(game).DelayCallback(this, active ? 0.1 : 0.25, false);
   }
@@ -1196,6 +1333,7 @@ public class CapriSandevistanSync extends DelayCallback {
 public class CapriSandevistanStrikeAction extends AIQuickHackAction {
   public let owner: wref<PlayerPuppet>;
   public let victim: wref<NPCPuppet>;
+  public let generation: Int32;
   public let completed: Bool;
   public let cancelled: Bool;
   public let uploadDuration: Float;
@@ -1203,9 +1341,15 @@ public class CapriSandevistanStrikeAction extends AIQuickHackAction {
   public func GetActivationTime() -> Float { return this.uploadDuration; }
   public func CompleteAction(gameInstance: GameInstance) -> Void {
     if this.completed || this.cancelled { return; };
-    if this.cancelled || !CapriSummonSystem.IsAutoStrikeTarget(this.owner, this.victim) {
+    let system = CapriSummonSystem.Get();
+    let linked = IsDefined(this.owner) && this.owner.IsAttached() && !this.owner.IsDead() && IsDefined(system) && this.generation == system.runtimeGeneration && system.QOLAutoStrikeEnabled()
+      && CapricornProjectQuickhack.IsDeckEquipped(this.owner)
+      && !GameInstance.GetBlackboardSystem(gameInstance).Get(GetAllBlackboardDefs().UI_System).GetBool(GetAllBlackboardDefs().UI_System.IsInMenu)
+      && GameInstance.GetTimeSystem(gameInstance).IsTimeDilationActive(TimeDilationHelper.GetSandevistanKey());
+    let currentUpload = IsDefined(this.victim) ? this.victim.GetCurrentlyUploadingAction() : null;
+    if !linked || !CapriSummonSystem.IsAutoStrikeTarget(this.owner, this.victim) || (IsDefined(currentUpload) && currentUpload != this) {
       this.cancelled = true;
-      if IsDefined(this.owner) && IsDefined(this.victim) { CapricornProjectQuickhack.CleanupHost(this.victim, this.owner); };
+      if IsDefined(this.owner) && IsDefined(this.victim) && this.victim.GetCurrentlyUploadingAction() == this { CapricornProjectQuickhack.CleanupHost(this.victim, this.owner); };
       return;
     };
     this.completed = true;
@@ -1217,8 +1361,10 @@ public class CapriSandevistanStrikeAction extends AIQuickHackAction {
 public class CapriDeathTransfer extends DelayCallback {
   public let player: wref<PlayerPuppet>;
   public let origin: Vector4;
+  public let generation: Int32;
   public func Call() -> Void {
-    if IsDefined(this.player) && !this.player.IsDead() { CapriSummonSystem.Get().TransferAfterDeath(this.player, this.origin); };
+    let system = CapriSummonSystem.Get();
+    if IsDefined(system) && this.generation == system.squadGeneration && IsDefined(this.player) && !this.player.IsDead() { system.TransferAfterDeath(this.player, this.origin); };
   }
 }
 
@@ -1230,7 +1376,9 @@ private func CheckForQuickExit(hitEvent: ref<gameHitEvent>, cache: ref<CacheData
     let target = hitEvent.target as NPCPuppet;
     let instigator = hitEvent.attackData.GetInstigator();
     let sourceHost = instigator as NPCPuppet;
-    if IsDefined(sourceHost) && system.IsHost(sourceHost) && IsDefined(target) && (CapriSummonSystem.IsProtectedNPC(target) || !system.IsCombatEnemy(target, GetPlayer(target.GetGame()))) { return true; };
+    // Recheck current protection/allegiance, not a combat flag that can clear while
+    // a bullet is in flight. Native damage rules still run through wrappedMethod.
+    if IsDefined(sourceHost) && system.IsHost(sourceHost) && IsDefined(target) && !system.IsHostileHelperTarget(target, GetPlayer(target.GetGame())) { return true; };
     if IsDefined(target) && system.IsHost(target) && IsDefined(instigator) && instigator.IsPlayer() {
       let type = hitEvent.attackData.GetAttackType();
       let weaponHit = AttackData.IsRangedOnly(type) || AttackData.IsMelee(type) || AttackData.IsThrown(type);
@@ -1258,7 +1406,7 @@ private func DealDamages(hitEvent: ref<gameHitEvent>) -> Void {
     if IsDefined(attacker) && system.IsHost(attacker) {
       let victim = hitEvent.target as NPCPuppet;
       // Final damage-stage guard even if native AI retains an old shoot order.
-      if !IsDefined(victim) || system.IsHost(victim) || !system.IsCombatEnemy(victim, GetPlayer(attacker.GetGame())) { return; };
+      if !IsDefined(victim) || !system.IsHostileHelperTarget(victim, GetPlayer(attacker.GetGame())) { return; };
       system.RecordHelperAttack(attacker);
       hitEvent.attackComputed.MultAttackValue(8.0);
     };
@@ -1319,6 +1467,7 @@ protected cb func OnUpdate() -> Bool {
     if this.capriRadarWasHelper {
       this.SetForceShow(false);
       this.LockIconRotation(false);
+      if IsDefined(icon) { icon.SetVisible(true); };
       if IsDefined(this.capriRadarImage) { this.capriRadarImage.SetVisible(false); };
       this.capriRadarWasHelper = false;
     };

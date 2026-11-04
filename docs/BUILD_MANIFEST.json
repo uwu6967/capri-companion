@@ -1,5 +1,5 @@
 {
-  "version": "0.1.1-private",
+  "version": "0.1.2-private",
   "visibility": "private",
   "files": {
     "src/init.lua": {
@@ -8,8 +8,8 @@
       "install_path": "bin/x64/plugins/cyber_engine_tweaks/mods/CapriCompanionQoL/init.lua"
     },
     "src/capri_summon.reds": {
-      "sha256": "1ea7fddfee038c149dddba91d4c8e834ef5087fb44bcfae361bf2605c218956b",
-      "bytes": 63139,
+      "sha256": "64f81b46eb85a90651b8165594282e21108eb057aa7aa21c8ef01d5e3bd93d76",
+      "bytes": 71783,
       "install_path": "r6/scripts/capri_summon/capri_summon.reds"
     },
     "src/CapricornDialogue.reds": {

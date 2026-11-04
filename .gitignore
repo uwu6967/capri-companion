@@ -7,3 +7,4 @@ settings.json
 *.tmp
 .DS_Store
 dist/
+.validation/

@@ -77,7 +77,7 @@ Settings save automatically. The panel includes **Restore QoL defaults**. No adv
 
 The current candidate has passed script compilation and panel/package/installer logic checks on the development setup. That is not certification across game patches or proof of live mission safety.
 
-The president was killed by an earlier automatic attack version and was later attacked by helpers. The direct automatic force-kill fallback was removed, target checks were tightened, protected ally threats are cleared and helper damage is checked again at the final damage stage. Those mitigations remain unverified in the affected mission. Conservative filters may also exclude mission enemies.
+The president was killed by an earlier automatic attack version and was later attacked by helpers. The direct automatic force-kill fallback was removed, target checks were tightened, protected ally threats are cleared and helper damage is checked again at the final damage stage. The November 4 candidate permits weapon combat against ordinary hostile quest-affiliated enemies while retaining the stricter possession/automatic Blackwall filters and persistent-identity protections. Protection no longer assigns friendship. These changes remain unverified in the affected mission; named/persistent enemies may still be excluded.
 
 Native NPC pathfinding can still stall. The add-on has recovery and regroup controls, but not every archetype is a purpose-built companion. The final aura/minimap presentation, weapon-safe behavior and combined-OS timing require fresh runtime checks. Read the linked FAQ before testing.
 
